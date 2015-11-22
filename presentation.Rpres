@@ -1,0 +1,82 @@
+Detecting commericial areas using Yelp data
+========================================================
+author: 
+date: 21/11/2015
+
+Primary Question
+========================================================
+
+
+- Detecting commercial areas using yelp data 
+- Detecting areas of interest and higher activity
+- Building polygon bounds for the area of interest
+
+Data Used
+========================================================
+The businesses present in the Las Vegas area.
+```{r,echo=FALSE}
+suppressPackageStartupMessages(library(sp))
+suppressPackageStartupMessages(library(ggmap))
+suppressPackageStartupMessages(library(plotKML))
+suppressPackageStartupMessages(library(googleVis))
+suppressPackageStartupMessages(library(fpc))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(doMC))
+suppressPackageStartupMessages(library(jsonlite))
+suppressPackageStartupMessages(library(ggmap))
+doMC::registerDoMC(cores=4)
+businessData <- stream_in(file("~/Downloads/yelp_dataset_challenge_academic_dataset/yelp_academic_dataset_business.json"),verbose = FALSE)
+businessDataN <- data.frame(lat = businessData$latitude,lon = businessData$longitude) 
+LV <- get_map(location = 'Las Vegas', zoom = 11)
+ggmap(LV) + geom_point(data = businessData, aes(x = longitude, y = latitude),colour='blue')
+```
+
+Method Used
+========================================================
+
+- Density based spatial clustering~(DBSCAN)
+```{r,echo=TRUE}
+#db <- dbscan(businessDataN,eps = 0.0009,MinPts = 10)
+load("~/courCap/db.RData")
+businessData$db <- as.numeric(db$cluster)
+clustData <- businessData[businessData$db != 0,]
+clustData <- clustData %>% select(longitude,latitude,db) 
+```
+- Minimum Covex polygon creation for getting polygons from clustered data
+```{r,echo=FALSE}
+PolyList <- list()
+for(i in 1:max(clustData$db)){
+  #   print(i)
+  
+  currentPoly <- subset(clustData,db == i) 
+  
+  
+  if(nrow(currentPoly)>6){
+    coordinates(currentPoly) <- ~longitude+latitude
+    proj4string(currentPoly) <- CRS("+proj=longlat +datum=WGS84")
+    dd <- adehabitatHR::mcp(currentPoly, percent=100, unin = c("m", "km"),
+                            unout = c("ha", "km2", "m2"))
+    dd@polygons[[1]]@ID[[1]] <- paste(i)
+    PolyList <- c(PolyList,dd@polygons)            
+  }  
+}
+```
+
+Results of Density based clustering
+========================================================
+
+The results of density based spatial clustering algorithm and polygons of interest found.
+```{r,echo=FALSE}
+nnn <- SpatialPolygons(PolyList)
+proj4string(nnn) <- CRS("+proj=longlat +datum=WGS84")
+dataN <- fortify(nnn)
+ggmap(LV) + geom_polygon(data = dataN,aes(x=long,y=lat,group = group),colour='red',fill="red")
+```
+
+Discussion
+========================================================
+
+- Areas of interest were detected by using a simple density based clustering algorithm.
+- The results show that high areas with higher activity were detected.
+- Useful for tourists. local shopers and city planners.
+

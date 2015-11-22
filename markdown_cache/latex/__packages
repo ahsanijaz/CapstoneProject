@@ -1,0 +1,14 @@
+base
+sp
+ggplot2
+ggmap
+plotKML
+googleVis
+fpc
+dplyr
+foreach
+iterators
+doMC
+jsonlite
+maps
+mapproj
